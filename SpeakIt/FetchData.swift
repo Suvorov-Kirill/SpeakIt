@@ -6,14 +6,23 @@
 //
 
 import Foundation
+import Alamofire
 
 struct Response: Codable {
-    let choices: [[String]:[String]]
+    let choices: [Choice]
 }
 
-func fetchData(fileURL: URL) {
-    
-    guard let url = URL(string: "192.168.1.106:19096/transcribe") else {
+struct Choice: Codable {
+    let message: Message
+}
+
+struct Message: Codable {
+    let content: String
+    let role: String
+}
+
+func fetchData(fileURL: URL, completion: @escaping (String) -> Void) {
+    guard let url = URL(string: "http://172.20.10.6:19096/transcribe") else {
         print("Неверный url")
         return
     }
@@ -23,19 +32,26 @@ func fetchData(fileURL: URL) {
         return
     }
     
-    
-    
-    let task = URLSession.shared.dataTask(with: url) { data, response, error in
-        
-        if let error = error {
-            print("response error: \(error)")
+    AF.upload(multipartFormData: { multipartFormData in
+        multipartFormData.append(fileURL, withName: "audio", fileName: "recording.m4a", mimeType: "audio/m4a")}, to: url)
+    .response { response in
+        if let error = response.error {
+            print("Ошибка загрузки: \(error.localizedDescription)")
         }
         
-        guard let data = data else {
-            print("No data")
-            return
+        if let data = response.data {
+            do {
+                let responseData = try JSONDecoder().decode(Response.self, from: data)
+                let responseText = responseData.choices.first?.message.content
+                print(responseText ?? "Ошибка расшифровки json")
+                completion(responseText ?? "Ошибка расшифровки json")
+            } catch {
+                print(error.localizedDescription)
+            }
+            
+            
+        } else {
+            print("Нет данных от сервера")
         }
-        
-        
     }
 }

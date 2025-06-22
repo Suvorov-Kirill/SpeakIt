@@ -12,14 +12,13 @@ class AudioRecorder: NSObject, ObservableObject, AVAudioPlayerDelegate {
     
     private var audioRecorder: AVAudioRecorder?
     private var player: AVAudioPlayer?
-    @Published var isRecording = false
-    @Published var isPlaying = false
     @Published var fileURL: URL? = nil
     
     func startRecording() {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playAndRecord, mode: .default)
+            try session.overrideOutputAudioPort(.speaker)
             try session.setActive(true)
             
             AVAudioApplication.requestRecordPermission { granted in
@@ -52,7 +51,6 @@ class AudioRecorder: NSObject, ObservableObject, AVAudioPlayerDelegate {
         do{
             audioRecorder = try AVAudioRecorder(url: audioURL, settings: settings)
             audioRecorder?.record()
-            isRecording = true
             print("Запись началась: \(audioURL.path)")
         } catch {
             print("Ошибка записи: \(error.localizedDescription)")
@@ -61,17 +59,19 @@ class AudioRecorder: NSObject, ObservableObject, AVAudioPlayerDelegate {
     
     func stopRecording() {
         audioRecorder?.stop()
-        isRecording = false
         print("Запись остановлена")
     }
     
     func playRecord() {
-        if FileManager.default.fileExists(atPath: fileURL!.path) {
+        guard let fileURL = fileURL else {
+            print("Невозможно воспроизвести, файла нет")
+            return
+        }
+        if FileManager.default.fileExists(atPath: fileURL.path) {
             do {
-                player = try AVAudioPlayer(contentsOf: fileURL!)
+                player = try AVAudioPlayer(contentsOf: fileURL)
                 player?.delegate = self
                 player?.play()
-                isPlaying = false
                 
             } catch {
                 print("ошибка воспроизведения: \(error.localizedDescription)")
@@ -83,6 +83,5 @@ class AudioRecorder: NSObject, ObservableObject, AVAudioPlayerDelegate {
     
     func stopPlay() {
         player?.stop()
-        isPlaying = true
     }
 }
